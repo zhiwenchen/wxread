@@ -76,6 +76,7 @@ def refresh_cookie():
 refresh_cookie()
 index = 1
 lastTime = int(time.time()) - 30
+fail_streak = 0
 logging.info(f"一共需要阅读 {READ_NUM} 次。")
 
 while index <= READ_NUM:
@@ -92,8 +93,18 @@ while index <= READ_NUM:
 
     refresh_print(f"阅读进度: 第 {index}/{READ_NUM} 次，已完成 {(index - 1) * 0.5:.1f} 分钟")
     logging.debug("data: %s", data)
-    response = requests.post(READ_URL, headers=headers, cookies=cookies, data=json.dumps(data, separators=(',', ':')))
-    resData = response.json()
+    try:
+        response = requests.post(READ_URL, headers=headers, cookies=cookies, data=json.dumps(data, separators=(',', ':')), timeout=30)
+        resData = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        # 瞬时网络抖动/网关返回非JSON时等60秒重试，连续10次失败才终止
+        fail_streak += 1
+        logging.warning(f"请求异常（连续第 {fail_streak} 次）：{exc}，60秒后重试")
+        if fail_streak >= 10:
+            raise Exception(f"连续 {fail_streak} 次请求失败，终止。已完成 {(index - 1) * 0.5:.1f} 分钟")
+        time.sleep(60)
+        continue
+    fail_streak = 0
     logging.debug("response: %s", resData)
 
     if 'succ' in resData:
