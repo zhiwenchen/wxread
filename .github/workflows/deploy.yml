@@ -6,8 +6,8 @@ concurrency:
 
 on:
   schedule:
-    # 凌晨任务：北京时间每天 01:00（UTC 前一天 17:00）
-    - cron: '0 17 * * *'
+    # 早间任务：北京时间每天 08:00（UTC 00:00）
+    - cron: '0 0 * * *'
     # 早间任务：北京时间每天 05:00（UTC 前一天 21:00）
     #- cron: '0 21 * * *'
     # 午间任务：北京时间每天 11:40（UTC 03:40）
@@ -55,6 +55,25 @@ jobs:
       run: |
         python main.py
 
+    - name: 企业微信通知
+      if: always()
+      env:
+        WECOM_PUSH_TOKEN: ${{ secrets.WECOM_PUSH_TOKEN }}
+        READ_NUM: ${{ vars.READ_NUM }}
+      run: |
+        N="${READ_NUM:-40}"
+        if [ "${{ job.status }}" = "success" ]; then
+          TITLE="微信读书 ✅ 今日阅读完成"
+          BODY="已阅读 ${N} 次，约 $((N/2)) 分钟。"
+        else
+          TITLE="微信读书 ❌ 任务失败"
+          BODY="查看日志: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        fi
+        curl -s -m 15 -X POST https://hang-rank.fun/push \
+          -H "Authorization: Bearer ${WECOM_PUSH_TOKEN}" \
+          -H "Content-Type: application/json" \
+          -d "{\"title\":\"${TITLE}\",\"content\":\"${BODY}\"}" || true
+
   keepalive-job:
     name: Keepalive Workflow
     if: ${{ always() }}
@@ -64,5 +83,3 @@ jobs:
       actions: write
     steps:
       - uses: liskin/gh-workflow-keepalive@v1.2.1
-
-# touched to register workflow on fork
