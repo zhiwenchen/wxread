@@ -73,7 +73,12 @@ def refresh_cookie():
         push(ERROR_CODE, PUSH_METHOD, is_success=False)
         raise Exception(ERROR_CODE)
 
-refresh_cookie()
+if cookies.get('wr_skey'):
+    logging.info("使用抓包中的 cookie 密钥。")
+else:
+    logging.info("抓包中未找到 cookie 密钥，尝试刷新。")
+    refresh_cookie()
+
 index = 1
 lastTime = int(time.time()) - 30
 fail_streak = 0
